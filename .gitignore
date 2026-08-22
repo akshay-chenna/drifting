@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data & checkpoints
+data/
+checkpoints/
+*.pt
+*.pth
+
+# Scratch
+scratch/

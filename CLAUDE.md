@@ -11,6 +11,15 @@ their job is to make claims that a reader can check. Prose that asserts without 
 There is no library, no package to install, no test suite. `pyproject.toml` exists only to pin the notebook
 dependencies.
 
+Two subdirectories are exceptions, and each is its **own git repository** (untracked by this one):
+
+* `picofold/` is an upstream clone of [daveyburke/picofold](https://github.com/daveyburke/picofold), a ~200-line flow
+  matching protein-fragment folder. It is reference material. **Do not edit it.**
+* `picodrift/` is a production-style application of this tutorial: picofold with flow matching replaced by drifting,
+  trained and evaluated on Modal. It has its own `CLAUDE.md`, which supersedes this file's notebook-specific rules
+  (notebooks, outputs stripped) but inherits everything about the method: shared signatures, conventions, and the
+  "easy to get wrong" list. Its `selftest` command is the closest thing to a test suite in this tree.
+
 ## Setup
 
 ```bash
@@ -27,7 +36,8 @@ Python $\ge$ 3.12, PyTorch $\ge$ 2.9. Notebooks detect CUDA and fall back to CPU
 ```
 THEORY.md               the mathematics; the reference the notebooks cite by equation number
 PHYSICS.md              the same objects read as an interacting-particle system
-PROTENIX_DRIFTING.md    design doc: drifting inside Protenix v2. No code, by request.
+PROTENIX_DRIFTING.md    design doc: drifting inside Protenix v2. No code, by request. §15 quotes picodrift's
+                        measured results; keep it in sync with picodrift/results/ when those change.
 README.md               the tour
 REFERENCES.md           source papers
 
@@ -38,6 +48,10 @@ REFERENCES.md           source papers
 8 *.ipynb               SE(3) equivariant drifting
 9 *.ipynb               score and force guidance toward Boltzmann
 10 *.ipynb              discrete drifting for peptides
+11 *.ipynb              bridge to picodrift: fragments, lDDT, chirality, internal coords, samplers, single positives
+
+picofold/               upstream flow-matching baseline (separate git repo, read-only)
+picodrift/              drifting replacement for picofold, on Modal (separate git repo; see picodrift/CLAUDE.md)
 ```
 
 Filenames contain spaces and are linked from within notebooks as `[title](<N. Title.ipynb>)`. **Do not rename them

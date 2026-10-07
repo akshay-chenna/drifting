@@ -39,6 +39,7 @@ appears in *Drift-React* (reaction pathways on SE(3)), *Pepti-drift* (toxicity-r
 | **`PHYSICS.md`** | The same objects as physics. Drifting as a two-component plasma finding mechanical equilibrium: screening, entropic forces, nonreciprocal interactions, overdamped dynamics and mobility, Henderson's theorem and the identifiability question, force matching and coarse-graining, gauge fixing and equivariance, non-conservative fields, and a renormalisation reading of the multi-$\tau$ sum. Ends with a dictionary. |
 | **`PROTENIX_DRIFTING.md`** | A design document: what it would take to replace or augment Protenix v2's diffusion module with a drifting head. Three architectures, five risks stated before the design, the diversity problem and four candidate solutions, an evaluation protocol, and explicit kill criteria. No code. |
 | **`REFERENCES.md`** | Source papers. |
+| **`picodrift/`** | The method applied, as a production training stack on Modal: picofold's flow matching replaced by drifting, with a head-to-head comparison over four rounds of experiments. A separate git repository with its own `README.md`, `CLAUDE.md` and a paper-style report in `reports/`. |
 
 ---
 
@@ -101,6 +102,32 @@ modifications that change only weights cannot**.
 objective steering rather than distribution matching, toxicity-repulsive generation, and a measurement of the mode
 collapse that follows when repulsion points at a fixed pool instead of at the model's own samples.
 
+### Application
+
+**`11. From Notebooks to picodrift`** — the prerequisites for the application below, on picofold's real data:
+protein fragments as data, lDDT and dRMSD and their high floor, why both are exactly blind to mirror images,
+virtual torsions and a chirality metric, building chains from internal coordinates (and the sign error that yields
+the mirror image at identical lDDT), clash thresholds measured from data, picofold's Euler and Euler–Maruyama
+samplers against step count, and a toy of the single-positive conditional regime. That toy shows **one reference
+per input is nearly harmless when the input determines the output, costly when it does not, and collapses when the
+inputs can be memorised**.
+
+**`picodrift/`** — [picofold](picofold) (a ~200-line flow-matching protein-fragment folder, cloned here as the
+baseline) with flow matching replaced by drifting: same data, transformer and evaluation, trained on Modal in one
+script with DDP, checkpointing, exact resume and a numerical selftest. It is the first time this tutorial's method
+meets real structure data. **Naive drifting fails:** lDDT 0.449 against flow's 0.621, below a random real fragment's
+0.522, with over-dispersed rather than collapsed ensembles. The cause is the single-positive regime
+(`PROTENIX_DRIFTING.md` R1): with one reference per sequence the attraction is τ-inert while the repulsion stays
+local, and with sequences that barely predict local structure the network cannot localise it. A memorisation test
+confirms the averaging: on 512 sequences the same field collapses onto the references (train lDDT 0.994). Notebook 11
+§7 reproduces all three regimes in a toy. **Fixed, it works:** positive *sets* distilled from the flow model (§8.2 by distillation), plus internal-
+coordinate outputs that fix Cα–Cα bonds at 3.8 Å, reach **lDDT 0.612 ± 0.000 in one network evaluation, against
+flow's 0.621 at 200**. Two further controls locate the limit. Teacher-free positive sets of the same size (noisy
+references, embedding neighbours) do not help, so the repair works through the teacher's information, not the number
+of positives. Multi-stage drifting along the flow path does not beat a single jump, so the number of steps is not the
+limit either. See `picodrift/README.md` §§4.5–4.7 and 5, and the paper-style write-up in
+`picodrift/reports/picodrift_report.md`.
+
 ---
 
 ## Reading orders
@@ -110,6 +137,8 @@ collapse that follows when repulsion points at a fixed pool instead of at the mo
 * **I want the physics.** `PHYSICS.md`, with `0a` and `0c` alongside.
 * **I want to apply it to molecules.** `8` → `9`, then `THEORY.md` §§11–12, then `PROTENIX_DRIFTING.md`.
 * **I want to apply it to sequences.** `7` → `10`, then `THEORY.md` §13.
+* **I want to see it fail on real structures, and why.** `8` §4, then `11`, then `picodrift/README.md` §§4–5, then
+  `PROTENIX_DRIFTING.md` §8.
 * **I am debugging a run that will not train.** `3` §§7–8, then `PHYSICS.md` §§2.3, 6.2, 11.
 
 ---
@@ -132,6 +161,14 @@ Claims in this repository are measured, not asserted. The load-bearing ones:
 | $\gamma^\star = 1/k_BT_{\text{target}} - 1/k_BT_{\text{data}}$ | `9` §4, predicted 0.6, confirmed to $<1\%$ |
 | force interpolation degrades geometric validity; kernel reweighting does not | `9` §6, 3$\times$ vs unchanged |
 | a moving prior damages training in proportion to $\rho$ | `7` §5 |
+| single-positive conditional drifting on real fragments: 200× cheaper, lDDT 0.449 vs flow's 0.621 | `picodrift` §4.1, 3 seeds |
+| the single-positive failure is over-dispersion (spread 4.5 Å vs flow's 2.4), not collapse | `picodrift` §§4.1, 5 |
+| …and collapse once the network can memorise (512 sequences: spread 6.1 → 0.27 Å, train lDDT 0.994) | `picodrift` §4.5 |
+| one positive per input is nearly harmless if the input determines the output (0.164 vs 0.128 from the modes), costly if not (0.327 vs 0.207) | `11` §7 |
+| lDDT and dRMSD are exactly blind to mirror images; torsion sines are not | `11` §§2–3 |
+| distilled positive sets + internal coordinates: 1-NFE lDDT 0.612 vs flow's 0.621 at 200 NFE | `picodrift` §4.5, 3 seeds |
+| more positives without more information do not help: noisy references 0.540, embedding neighbours 0.530 | `picodrift` §4.6 |
+| N drifting stages along the flow path never beat one jump: N = 4 independent 0.594 vs N = 1 0.611; rollout 0.610 | `picodrift` §4.7, 3 seeds |
 
 ---
 

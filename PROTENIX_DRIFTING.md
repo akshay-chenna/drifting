@@ -33,6 +33,7 @@ constrained output spaces, direction-space guidance is not).
 12. [Evaluation protocol](#12-evaluation-protocol)
 13. [Risk table and kill criteria](#13-risk-table-and-kill-criteria)
 14. [Open questions](#14-open-questions)
+15. [Empirical update: what picodrift measured](#15-empirical-update-what-picodrift-measured)
 
 ---
 
@@ -745,3 +746,36 @@ not change.
    sizes set by memory rather than by field-estimator variance. `THEORY.md`
    §15.5 notes that drifting's scaling behaviour in batch size is largely uncharted, and structure prediction pushes
    on exactly that axis.
+
+---
+
+## 15. Empirical update: what picodrift measured
+
+Sections 1–14 were written before any experiment. `picodrift/` has since tested several of their claims on the
+smallest real system that has the same structure as the problem. It replaces picofold's flow matching with drifting
+for 16-residue Cα fragments from CATH S40, with one reference structure per sequence, in one harness with matched
+compute. The numbers below are from `picodrift/results/`. The method and caveats are in
+`picodrift/reports/picodrift_report.md`. The scale is tiny (1M parameters, local structure only), so read these as
+directional evidence, not as Protenix measurements.
+
+| claim in this document | what picodrift measured |
+|---|---|
+| **R1** (§4): single-positive drifting reduces to a deterministic predictor | **Confirmed, in a sharper form.** With a capacity-limited network the failure is *over-dispersion*, not collapse: lDDT 0.449 against flow's 0.621, below a random real fragment (0.522), with ensemble spread 4.5 Å and 72% clashes. The shared network reconciles single positives across sequences it cannot tell apart, because sequence barely predicts local structure here, and settles on an over-dispersed blob. A 2-D toy (notebook 11 §7) shows the regime dependence: one positive per input is nearly harmless when the input determines the output, and costly when it does not. When the network *can* separate every sequence (512 training windows) the field collapses each ensemble onto its reference, exactly as stated here (training lDDT 0.994). |
+| §8.5: if diversity fails, Design A is still a fast deterministic predictor | **Not reached.** Naive drifting is worse than plain aligned regression (0.466) at the same cost. |
+| §8.2: a positive *set* instead of a positive | **The decisive lever, but only if the set carries information.** Sixteen samples per training sequence from a trained flow model (one offline pass, 630 s here) remove the over-dispersion (spread 2.7 Å). With geometry fixed (next row) the one-step student reaches **lDDT 0.612 ± 0.000 against its 200-step teacher's 0.621 ± 0.001**, about 170× cheaper per structure. Sets of the same size *without* new information do not help: noisy copies of the reference score 0.540, and references of embedding neighbours 0.530. Sequence-similarity neighbours are barely informative here (BLOSUM62 top-5: 0.563). Adding the true reference to the distilled set *hurts* (0.529 vs 0.542). |
+| §6.2: keep `BondLoss`; geometry needs explicit attention (R5) | **Stronger than stated: enforce it by parameterisation.** An internal-coordinate output, with bonds fixed at 3.8 Å, plus a clash penalty, was worth as much as the positive set (+0.10 lDDT each, +0.163 together). Bond error fell from 1.10 to 0.023 Å, below the flow teacher's 0.083. |
+| §12.2: aggregate lDDT will not show per-sample failures | **Confirmed with a sharper example.** An internal-coordinate regressor scored a respectable lDDT (0.556) while 61% of its samples were *mirror images*. lDDT and dRMSD are reflection-invariant, so measure chirality explicitly. |
+| Q4 (§14): CFG as a negative mixture for structures | **A real lever for a broken field, idle for a good one.** Using other sequences' references as negatives gives +0.04 to +0.05 over naive drifting (3 seeds, α ∈ [1.2, 2]), and nothing once distilled positives are used (0.613 vs 0.612). |
+| One step versus few steps | **One call is enough.** N drifting stages along the flow path never beat the single jump: 0.611 (N = 1), 0.613 (N = 2), 0.594 (N = 4), 0.579 (N = 8), and 0.610 for N = 4 trained on its own rollouts. Without a teacher, where the noisy intermediates at least supply positive sets, it is the same: 0.556 (N = 1) against 0.530 (N = 4) and 0.499 (N = 8). A few-step drifting head adds cost, not quality. |
+
+**What this changes in the design.**
+
+* **Design A should be trained as a distillation of the diffusion module from the start.** The step is: sample the
+  existing module over the training set once, and drift the head toward those samples, *excluding* the PDB
+  reference. This promotes §8.2 from "medium confidence" to the default.
+* **Build the head's output so it cannot break the chain.** Use frames or internal coordinates where possible, with
+  bond and clash terms on top.
+* **Add a chirality check to the §12.2 validity suite.**
+* **Do not plan a few-step drifting variant.**
+* **Open question.** The 1-NFE head's quality is capped by its teacher. Whether the drifting field adds anything over
+  plain regression onto teacher samples has not yet been measured; it is the next picodrift control.

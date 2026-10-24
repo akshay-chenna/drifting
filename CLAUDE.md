@@ -80,8 +80,8 @@ every notebook stands alone. Keep the signatures consistent:
 
 ```python
 compute_V(x, y_pos, y_neg=None, tau=0.2)   # the field; y_neg=None means self-negatives with a masked diagonal
-feature_scale(f, fp)                        # S_j from THEORY.md eq. 21
-normalised_drift(V)                         # V / RMS(V), THEORY.md eq. 23-25
+feature_scale(f, fp)                        # S_j from THEORY.md eq. 40 (paper eq. 21)
+normalised_drift(V)                         # V / RMS(V), THEORY.md eq. 42 (paper eqs. 23-25)
 ```
 
 Other recurring conventions:

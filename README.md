@@ -120,7 +120,7 @@ meets real structure data. **Naive drifting fails:** lDDT 0.449 against flow's 0
 (`PROTENIX_DRIFTING.md` R1): with one reference per sequence the attraction is τ-inert while the repulsion stays
 local, and with sequences that barely predict local structure the network cannot localise it. A memorisation test
 confirms the averaging: on 512 sequences the same field collapses onto the references (train lDDT 0.994). Notebook 11
-§7 reproduces all three regimes in a toy. **Fixed, it works:** positive *sets* distilled from the flow model (§8.2 by distillation), plus internal-
+§7 reproduces all three regimes in a toy. **Fixed, it works:** positive *sets* distilled from the flow model (`PROTENIX_DRIFTING.md` §8.2, by distillation), plus internal-
 coordinate outputs that fix Cα–Cα bonds at 3.8 Å, reach **lDDT 0.612 ± 0.000 in one network evaluation, against
 flow's 0.621 at 200**. Two further controls locate the limit. Teacher-free positive sets of the same size (noisy
 references, embedding neighbours) do not help, so the repair works through the teacher's information, not the number
@@ -158,7 +158,7 @@ Claims in this repository are measured, not asserted. The load-bearing ones:
 | single-positive attraction is $\tau$-inert — drifting becomes MSE | `8` §4, identical across four decades of $\tau$ |
 | the single-positive fixed point is the reference; swarms collapse | `8` §4, spread 0.86 → 0.004 |
 | the Drifting Score Identity holds for Gaussian, fails for Laplace | `9` §1, $N^{-1/2}$ vs a 40–60% residual |
-| $\gamma^\star = 1/k_BT_{\text{target}} - 1/k_BT_{\text{data}}$ | `9` §4, predicted 0.6, confirmed to $<1\%$ |
+| $\gamma^\star = 1 - T_{\text{target}}/T_{\text{data}}$ | `9` §4, predicted 0.6, confirmed to $<1\%$ |
 | force interpolation degrades geometric validity; kernel reweighting does not | `9` §6, 3$\times$ vs unchanged |
 | a moving prior damages training in proportion to $\rho$ | `7` §5 |
 | single-positive conditional drifting on real fragments: 200× cheaper, lDDT 0.449 vs flow's 0.621 | `picodrift` §4.1, 3 seeds |

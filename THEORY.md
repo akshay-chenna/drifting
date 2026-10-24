@@ -358,7 +358,7 @@ right mean is an equilibrium. Notebook 2 §7 measures this. On a bimodal target 
 
 | $\tau$ | 0.2 | 0.5 | 1.0 | 3.0 | 10 | 30 |
 |---|---|---|---|---|---|---|
-| $\|\mathbf{V}\|$ ratio, wrong $q$ vs correct $q$ | 5.4 | 51 | 58 | 11 | 4.5 | **1.3** |
+| $\lVert\mathbf{V}\rVert$ ratio, wrong $q$ vs correct $q$ | 5.4 | 51 | 58 | 11 | 4.5 | **1.3** |
 
 At sensible $\tau$ the field discriminates by 1–2 orders of magnitude; at large $\tau$ it goes blind. Practical
 corollaries: always include small $\tau$ in the multi-temperature set, make sure the metric is semantically
@@ -416,7 +416,7 @@ For the Laplace kernel, $\nabla_{\mathbf{y}}k = -\frac{\mathbf{y}-\mathbf{x}}{\t
 extra $1/\|\mathbf{y}-\mathbf{x}\|$ breaks (27). The position-dependent normalisation $1/Z(\mathbf{x})$ then destroys
 the gradient structure. Numerically (Notebook 0a §6), on the same configuration:
 
-| kernel | mean $|\mathrm{curl}|$ / mean $\|\mathbf{V}\|$ |
+| kernel | mean $\lvert\mathrm{curl}\rvert$ / mean $\lVert\mathbf{V}\rVert$ |
 |---|---|
 | Gaussian | $\approx 10^{-4}$ (finite-difference noise) |
 | Laplace | $\approx 1.7\times10^{-2}$ |
@@ -688,14 +688,16 @@ because of finite sampling, enhanced-sampling bias, or non-equilibrium data coll
 
 ### 12.1 The Drifting Score Identity
 
-Using (25) and integration by parts, for a **Gaussian** kernel and any sufficiently regular $p$:
+Using (25) and integration by parts, for a **Gaussian** kernel $k(\mathbf{x},\mathbf{y})=\exp\!\big(-\|\mathbf{x}-\mathbf{y}\|^2/2\tau^2\big)$
+(so $\tau$ plays the role of $h$; the prefactor $\tau^2$ is exact for this parameterisation) and any sufficiently regular $p$,
+with $\bar k = k/Z_p$ the normalised kernel ($\tilde k$ of §3; §12 follows the source paper's notation):
 
 $$\boxed{\;\mathbf{V}^{+}_{p}(\mathbf{x}) = \tau^2\,\mathbb{E}_{p}\big[\bar k(\mathbf{x},\mathbf{y})\,\nabla_{\mathbf{y}}\log p(\mathbf{y})\big]\;} \tag{49}$$
 
-*Proof.* The numerator is $\mathbb{E}_p[k(\mathbf{y}-\mathbf{x})]$. Using
+*Proof.* The numerator is $\mathbb{E}_p[k(\mathbf{x},\mathbf{y})\,(\mathbf{y}-\mathbf{x})]$. Using
 $k(\mathbf{x},\mathbf{y})(\mathbf{y}-\mathbf{x}) = -\tau^2\nabla_{\mathbf{y}}k(\mathbf{x},\mathbf{y})$ and integrating
 by parts (boundary terms vanish),
-$$\mathbb{E}_p\big[k(\mathbf{y}-\mathbf{x})\big] = -\tau^2\!\int p\,\nabla_{\mathbf{y}}k = \tau^2\!\int (\nabla_{\mathbf{y}}p)\,k = \tau^2\,\mathbb{E}_p\big[k\,\nabla_{\mathbf{y}}\log p\big].$$
+$$\mathbb{E}_p\big[k\,(\mathbf{y}-\mathbf{x})\big] = -\tau^2\!\int p\,\nabla_{\mathbf{y}}k = \tau^2\!\int (\nabla_{\mathbf{y}}p)\,k = \tau^2\,\mathbb{E}_p\big[k\,\nabla_{\mathbf{y}}\log p\big].$$
 Divide by $Z_p=\mathbb{E}_p[k]$. $\square$
 
 *The attraction term is a kernel-weighted average of the score of the sampling distribution.* This is the same
@@ -756,7 +758,10 @@ The effective sampling measure becomes $p_{\text{data}}\cdot p_{\text{Boltz}}^{\
 if $p_{\text{data}}$ is itself Boltzmann at a wrong temperature $T_{\text{data}}$, the exact energy-tilted kernel
 recovers the target at
 
-$$\gamma^{\star} = \frac{1}{k_BT_{\text{target}}} - \frac{1}{k_BT_{\text{data}}}. \tag{56}$$
+$$\gamma^{\star} = k_BT_{\text{target}}\left(\frac{1}{k_BT_{\text{target}}} - \frac{1}{k_BT_{\text{data}}}\right) = 1-\frac{T_{\text{target}}}{T_{\text{data}}}, \tag{56}$$
+
+with $T=T_{\text{target}}$ in (54). In units where $k_BT_{\text{target}}=1$ (or for a bare tilt $e^{-\gamma\mathcal{E}}$)
+this is simply $1/k_BT_{\text{target}} - 1/k_BT_{\text{data}}$.
 
 Notebook 9 verifies this quantitatively on a 2-D double well: with $T_{\text{data}}=2.5$, $T_{\text{target}}=1.0$,
 theory predicts $\gamma^\star=0.6$, and the run at $\gamma=0.6$ reproduces the target's mean energy to 0.3% and both
@@ -826,7 +831,9 @@ $$V^{+}_{\text{att}}(\bar x) = \alpha_{+}\big(u^{+} - \bar x\big), \qquad
 V^{-}_{\text{rep}}(\bar x) = \alpha_{-}(e)\sum_{k} w^{-}_{k}\big(\bar x - u^{-}_{k}\big), \tag{59}$$
 
 with $w^{-}_k$ a softmax over distances to the $K$ *hardest* negatives from a fixed pool of toxic/hemolytic peptides.
-The target is $\tilde x = \texttt{sg}\big[\mathrm{norm}(\bar x + V)\big]$.
+The target is $\tilde x = \texttt{sg}\big[\mathrm{norm}(\bar x + V)\big]$ with $V = V^{+}_{\text{att}} + V^{-}_{\text{rep}}$ — a
+**plus**, because (59) writes repulsion in the push-away form $(\bar x - u^{-}_k)$, the opposite sign convention to
+$\mathbf{V}^{-}_q$ in (7)–(8).
 
 This is **objective-steering rather than distribution-matching**: attraction goes to an antigen-matched positive
 teacher, and repulsion goes to an undesirable *region*, not to the model's own samples. So the equilibrium is not
@@ -885,7 +892,7 @@ confront this.
 | **Drifting** | **1 NFE** | regression onto a drifted sample | **no** | low (repulsion is built in) | no |
 
 Drifting occupies a specific corner: **one-step, non-adversarial, no ODE/SDE, no time variable, trained from
-scratch.** Every other 1-NFE method either distils a multi-step teacher, retains a time-indexed velocity field, or
+scratch.** Every other competitive 1-NFE method either distils a multi-step teacher, retains a time-indexed velocity field, or
 uses a discriminator.
 
 Reported results on ImageNet 256×256, 50K images, all trained from scratch:
@@ -953,7 +960,7 @@ Stated by the authors, plus what the follow-up literature has and has not settle
 | $f_\theta$, $q_\theta$ | generator, and its pushforward $[f_\theta]_{\#}p_{\boldsymbol{\epsilon}}$ |
 | $p$, $p_{\text{data}}$ | target distribution |
 | $\mathbf{y}^{+}$, $\mathbf{y}^{-}$ | positive (from $p$) and negative (from $q$) samples |
-| $k$, $\tilde k$ | kernel and its normalised form $k/Z$ |
+| $k$, $\tilde k$ | kernel and its normalised form $k/Z$ (written $\bar k$ in §12) |
 | $\tau$ | kernel temperature (dimensionless after feature normalisation) |
 | $\mathbf{V}^{+}_{p}$, $\mathbf{V}^{-}_{q}$ | attractive and repulsive mean-shift fields |
 | $\mathbf{V}_{p,q}$ | drifting field, $\mathbf{V}^{+}_{p}-\mathbf{V}^{-}_{q}$ |

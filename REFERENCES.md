@@ -1,7 +1,7 @@
-1. Generative Modeling via Drifting
+1. Generative Modeling via Drifting. arXiv:2602.04770
 1a. https://lambertae.github.io/projects/drifting/
-2. PEPTI-DRIFT: TOXICITY-REPULSIVE DRIFTING FOR ANTIGEN-CONDITIONED DISCRETE PEPTIDE GENERATION
-3. Drift-React: One-step Generation of Reaction Pathways via SE(3) Drifting Fields
+2. PEPTI-DRIFT: TOXICITY-REPULSIVE DRIFTING FOR ANTIGEN-CONDITIONED DISCRETE PEPTIDE GENERATION. arXiv:2606.27824
+3. Drift-React: One-step Generation of Reaction Pathways via SE(3) Drifting Fields. arXiv:2605.22990
 3a. https://github.com/schwallergroup/drift-react
 
 ---
@@ -16,7 +16,7 @@ reproduce in miniature:
 5. Drift-AR — drifting from a learned, model-dependent prior, and the *moving prior* problem (`THEORY.md` §13.2,
    Notebook 7). arXiv:2603.28049
 
-arXiv identifiers for items 2–5 are as recorded in `THEORY.md`; verify them against the published versions before
+arXiv identifiers for items 1–5 are as recorded in `THEORY.md`; verify them against the published versions before
 citing.
 
 ## Repository documents

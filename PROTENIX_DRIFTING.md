@@ -676,7 +676,7 @@ distribution describes nothing):
 * peptide-bond geometry, cis/trans;
 * ring planarity for aromatics.
 
-Compare against the diffusion module on the same inputs. A 1-NFE sampler that is 0.5 lDDT better and produces 5%
+Compare against the diffusion module on the same inputs. A 1-NFE sampler that is 0.5 lDDT points better and produces 5%
 invalid structures is worse, not better.
 
 ### 12.3 Ensemble quality

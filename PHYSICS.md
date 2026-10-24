@@ -180,7 +180,7 @@ Physically: there is no potential energy function whose descent the dynamics per
 quantity, no Lyapunov function derived from an energy, no Boltzmann weight $e^{-\Phi/k_BT}$ associated with the
 steady state. §10 works out what follows.
 
-Why then use it? Because the $1/r$ weighting is exactly what one wants numerically. In high dimensions, distances
+Why then use it? Because the $e^{-r}$ profile is exactly what one wants numerically. In high dimensions, distances
 concentrate: nearly all pairs sit at nearly the same distance, so a Gaussian kernel's $e^{-r^2}$ produces weights
 spanning many orders of magnitude within a narrow band of $r$, and the field becomes "copy the single nearest
 neighbour". The Laplace kernel's $e^{-r}$ has a far gentler profile and keeps many neighbours in play — measurable
@@ -476,10 +476,10 @@ $$\int p(\mathbf{y})\,\nabla_{\mathbf{y}}(\cdot)\,d\mathbf{y} = -\int (\nabla_{\
 The Drifting Score Identity (`THEORY.md` eq. 49) is the same move, with the test function taken to be the Gaussian
 kernel:
 
-$$\mathbb{E}_p\big[k(\mathbf{y}-\mathbf{x})\big] = \tau^2\,\mathbb{E}_p\big[k\,\nabla_{\mathbf{y}}\log p\big].$$
+$$\mathbb{E}_p\big[k\,(\mathbf{y}-\mathbf{x})\big] = \tau^2\,\mathbb{E}_p\big[k\,\nabla_{\mathbf{y}}\log p\big].$$
 
 The reason the Gaussian is required is also the same in both settings: the identity needs
-$k(\mathbf{y}-\mathbf{x}) = -\tau^2\nabla_{\mathbf{y}}k$, which is a property of the Gaussian and of nothing else.
+$k\,(\mathbf{y}-\mathbf{x}) = -\tau^2\nabla_{\mathbf{y}}k$, which is a property of the Gaussian and of nothing else.
 Notebook 9 §1 verifies the identity converges at $N^{-1/2}$ for the Gaussian and sits at a 40–60% residual for
 Laplace.
 
@@ -497,8 +497,10 @@ exactly:
 
 ### 8.2 Temperature reweighting is exactly parallel tempering's exponent
 
-The FK prediction $\gamma^\star = 1/k_BT_{\text{target}} - 1/k_BT_{\text{data}}$ (`THEORY.md` eq. 56) is not new
-physics — it is the reweighting exponent that appears everywhere in enhanced sampling:
+The FK prediction $\gamma^\star = k_BT_{\text{target}}\big(1/k_BT_{\text{target}} - 1/k_BT_{\text{data}}\big)
+= 1 - T_{\text{target}}/T_{\text{data}}$ (`THEORY.md` eq. 56; the prefactor only converts the tilt of eq. 54 into
+units of $k_BT_{\text{target}}$) is not new physics — it is the reweighting exponent that appears everywhere in
+enhanced sampling:
 
 $$\frac{p_{T_2}(\mathbf{x})}{p_{T_1}(\mathbf{x})} \propto \exp\!\Big[-\mathcal{E}(\mathbf{x})\Big(\tfrac{1}{k_BT_2}-\tfrac{1}{k_BT_1}\Big)\Big].$$
 

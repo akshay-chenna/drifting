@@ -60,7 +60,7 @@ what is affordable, and it is the strongest argument for doing this at all.
 
 **The central risk, stated plainly.** Structure prediction is the **single-positive regime**: one input, one
 reference structure in the PDB. Notebook 8 §4 measures what drifting's field does there — the fixed point is the
-reference, and a 32-member ensemble collapses from spread 0.86 Å to 0.004 Å. Diffusion has the same nominal problem
+reference, and a 32-member ensemble collapses from spread 0.89 Å to 0.004 Å. Diffusion has the same nominal problem
 but escapes it because its training objective is denoising at *many noise levels*, which forces the model to
 represent a whole family of perturbed structures; drifting has no such mechanism. **A naive port will produce five
 identical samples.** Everything in §8 exists to address this, and if §8 fails then Design A is a fast deterministic
@@ -196,8 +196,8 @@ The dataset is (input, one reference structure) pairs. Notebook 8 §4 establishe
 * the naive mean-shift attraction with one positive is $\mathbf{V}^{+} = \mathbf{y}^{\star}-\mathbf{x}$ **exactly**,
   independent of $\tau$ and of the kernel — drifting silently degenerates into MSE regression;
 * Drift-React's augmented target set restores $\tau$-dependence, but its fixed point is *still* the reference: a
-  32-member swarm collapsed from spread 0.86 to 0.004, and a trained pathway generator learned to ignore its noise
-  input entirely.
+  32-member swarm collapsed from spread 0.89 to 0.004, and a trained pathway generator never developed any
+  dependence on its noise input (spread stayed near $10^{-3}$ throughout training).
 
 So: **the equilibrium of a conditional drifting model trained on single references is a deterministic predictor.**
 Not a bug to be tuned away — the correct solution to the problem as posed. §8 is entirely about posing a different
@@ -232,9 +232,11 @@ term, and *no learned encoder in v1*. Add an encoder only if the ablation demand
 
 ### R4 — Moving prior and moving metric (severity: high if you co-train)
 
-Notebook 7 §5: if the module producing the prior is trained concurrently, the target moves and training degrades in
-proportion to $\rho = \|\Delta m_\psi\| / (\eta\|\mathbf{V}\|)$. Fast co-training measurably damaged a toy that
-frozen and staged training handled fine.
+If the module producing the prior is trained concurrently, the target moves underneath the regression; Drift-AR
+names this the moving-prior problem and fixes it by staging (`THEORY.md` §13.2). Notebook 7 §5 defines the diagnostic
+$\rho = \|\Delta m_\psi\| / (\eta\|\mathbf{V}\|)$ but does not reproduce the failure: its toy prior converged within a
+few hundred steps, $\rho$ never exceeded 0.2, and co-trained, staged and frozen runs ended within seed noise of each
+other. The risk rests on Drift-AR's report and on the argument above, not on a measurement in this repository.
 
 For Protenix this is not hypothetical: the trunk *is* a prior-producing module, and if the drifting head is trained
 jointly with a trainable trunk, the conditioning distribution moves every step. **Freeze the trunk.** If the trunk
@@ -448,7 +450,7 @@ topology". You want at least one $\tau$ in each regime.
 ### 7.4 Equivariance is not enough
 
 Notebook 8 §6 measures this: the *field* being equivariant does not make the *model* equivariant. The trained
-generator's equivariance residual there was 0.78, not $10^{-6}$. Protenix already handles this with
+generator's equivariance residual there was 0.95, not $10^{-6}$. Protenix already handles this with
 `centre_random_augmentation` during training, so the drifting head should keep the same augmentation. The equivariant
 field ensures the *target* is well-defined; the augmentation teaches the network.
 
@@ -557,7 +559,9 @@ its hazard.
 
 * **FI (force interpolation)** changes the drift *direction* by blending in $\tau^2\mathbf{F}/k_BT$. In a constrained
   output space this leaves the data manifold: in distance space the rank-3 embedding residual tripled and bond
-  lengths were perturbed by 0.27 Å at $\omega=1$.
+  lengths were perturbed by 0.27 Å at $\omega=1$. It is also unstable in the far field (Notebook 9 §3): a stranded
+  sample is pushed outward by roughly $\omega$ times its distance from the data, and every $\omega>0$ tested there
+  eventually diverged. Small $\omega$ only delays the runaway.
 * **FK (force-aligned kernel)** changes only the *weights*, $\ell_j \mathrel{-}= \gamma\mathcal{E}(\mathbf{y}_j)/k_BT$.
   Displacements remain differences of real structures, so validity is preserved by construction: embedding residual
   and bond error both essentially unchanged.
@@ -706,7 +710,7 @@ not change.
 
 | # | risk | severity | evidence | mitigation | kill criterion |
 |---|---|---|---|---|---|
-| R1 | single-positive fixed point = the reference; no ensemble diversity | **critical** | Notebook 8 §4; spread 0.86 → 0.004 | §8.1 entropy prior, §8.2 positive sets | after Stage 3, ensemble spread does not correlate with per-residue error, and does not track NMR ensemble spread |
+| R1 | single-positive fixed point = the reference; no ensemble diversity | **critical** | Notebook 8 §4; spread 0.89 → 0.004 | §8.1 entropy prior, §8.2 positive sets | after Stage 3, ensemble spread does not correlate with per-residue error, and does not track NMR ensemble spread |
 | R2 | equivariance / permutation bugs | high | Notebook 8 §§2–3 | exact construction + startup assertion | equivariance residual $>10^{-4}$ in float32 and not traceable |
 | R3 | no adequate metric space for structures | high | Notebook 4 | multi-scale feature sets, §7.2 | ESS stuck at 1 or at $|\mathcal{T}|$ across all $\tau$ after normalisation |
 | R4 | moving prior/metric if co-trained | high | Notebook 7 §5 | freeze the trunk; stage; log $\rho$ | $\rho>1$ and TV/lDDT non-monotone |

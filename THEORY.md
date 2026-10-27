@@ -358,9 +358,10 @@ right mean is an equilibrium. Notebook 2 §7 measures this. On a bimodal target 
 
 | $\tau$ | 0.2 | 0.5 | 1.0 | 3.0 | 10 | 30 |
 |---|---|---|---|---|---|---|
-| $\lVert\mathbf{V}\rVert$ ratio, wrong $q$ vs correct $q$ | 5.4 | 51 | 58 | 11 | 4.5 | **1.3** |
+| $\lVert\mathbf{V}\rVert$ ratio, wrong $q$ vs correct $q$ | 6.6 | 43 | 24 | 3.9 | 5.1 | **0.4** |
 
-At sensible $\tau$ the field discriminates by 1–2 orders of magnitude; at large $\tau$ it goes blind. Practical
+At sensible $\tau$ the field discriminates by up to $40\times$; at large $\tau$ it goes blind (at $\tau=30$ both fields
+are at the finite-sample noise level). Practical
 corollaries: always include small $\tau$ in the multi-temperature set, make sure the metric is semantically
 meaningful (§9), and monitor the raw $\|\mathbf{V}_\tau\|^2$ *per temperature*, because a run in which only the
 large-$\tau$ term is active is matching moments, not distributions.
@@ -419,7 +420,7 @@ the gradient structure. Numerically (Notebook 0a §6), on the same configuration
 | kernel | mean $\lvert\mathrm{curl}\rvert$ / mean $\lVert\mathbf{V}\rVert$ |
 |---|---|
 | Gaussian | $\approx 10^{-4}$ (finite-difference noise) |
-| Laplace | $\approx 1.7\times10^{-2}$ |
+| Laplace | $\approx 1.4\times10^{-2}$ |
 
 So the field the paper actually uses is a genuinely **non-conservative interacting-particle system**. There is no
 Lyapunov function handed to you for free, which is why the convergence theory is harder.
@@ -731,9 +732,22 @@ $\omega$ **linearly scales an explicit Boltzmann correction**: the discrepancy b
 
 $$\hat{\mathbf{V}}(\mathbf{x}) = \underbrace{\mathbf{V}^{+}_{p_{\text{data}}} - \mathbf{V}^{-}_{q}}_{\text{anti-symmetric drift}} \;+\; \underbrace{\tau^2\,\mathbb{E}_{p_{\text{data}}}\!\left[\bar k\,\nabla\log\tfrac{p_{\text{Boltz}}}{p_{\text{data}}}\right]}_{\text{Boltzmann correction}}. \tag{53}$$
 
-$\omega$ also serves as variance control: in molecular systems
+The source paper also motivates $\omega$ as variance control: in molecular systems
 $\|\tau^2\mathbf{F}/k_BT\|$ can be $\sim150\times\|\mathbf{y}-\mathbf{x}\|$, so small $\omega$ (e.g. 0.01) supplies the
 full correction *direction* while adding only $O(\omega)$ variance.
+
+**A special case worth knowing.** If $p_{\text{data}}$ is itself Boltzmann at $T_{\text{data}}$, then (49) gives
+$\tau^2\,\mathbb{E}_{p_{\text{data}}}[\bar k\,\mathbf{F}]/k_BT = (T_{\text{data}}/T)\,\mathbf{V}^{+}_{p_{\text{data}}}$, and
+(51) reduces to $\mathbf{V}^{+}_{\omega} = \big[1+\omega(T_{\text{data}}/T-1)\big]\,\mathbf{V}^{+}_{p_{\text{data}}}$. FI is
+then a pure rescaling of attraction against repulsion — the anti-symmetry break of §2.3 — and the forces carry no
+information the data did not. Notebook 9 §3 confirms that a force-free field with that scaling reproduces FI's cooling.
+
+**The far field.** (49) is a population statement. A sample far from all data sees $\bar k$ concentrated on its
+nearest positive $\mathbf{y}^{*}$, so the force term stays bounded by $\omega\tau^2\|\mathbf{F}(\mathbf{y}^{*})\|/k_BT$
+while the displacement it replaced, $\omega(\mathbf{y}^{*}-\mathbf{x})$, grows with distance. For an isolated sample
+with self-negatives the rest of the field nearly cancels (attraction and repulsion both point back at the bulk), which
+leaves a net outward push of about $\omega(\mathbf{x}-\mathbf{y}^{*})$. Notebook 9 §3 measures this push, and finds that
+every $\omega>0$ it tests eventually diverges: a small $\omega$ delays the runaway rather than preventing it.
 
 ### 12.4 Force-Aligned Kernel (FK)
 
@@ -780,10 +794,12 @@ For the force-substituted field (53):
   cancellation fails.
 * **The realised equilibrium lies between the two**, shifted toward Boltzmann by $\omega$ (or $\gamma$).
 
-Force alignment technically breaks strict anti-symmetry, since attraction and repulsion now use different kernels.
-That is a *deliberate* shift of the equilibrium, and it is qualitatively different from rescaling the relative
-magnitudes of $\mathbf{V}^{+}$ and $\mathbf{V}^{-}$ (§2.3), which collapses the model: here the displacements are
-untouched and only the weighting inside attraction changes.
+The force-aligned kernel (§12.4) technically breaks strict anti-symmetry, since attraction and repulsion now use
+different kernels. That is a *deliberate* shift of the equilibrium: the displacements are untouched and only the
+weighting inside attraction changes. FI is not in that class. On temperature-mismatched data it is exactly a §2.3
+rescaling of $\mathbf{V}^{+}$ against $\mathbf{V}^{-}$ (§12.3). Notebook 9 §5 finds that, with the Gaussian kernel and
+drift normalisation, such a rescaling moves the equilibrium rather than destroying it at the strengths tested. FI's
+failure is the far-field runaway of §12.3.
 
 ### 12.6 Representation dependence
 

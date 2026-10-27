@@ -236,11 +236,14 @@ The precision matters. Two distinct things can be broken:
 | what is broken | physical analogue | consequence |
 |---|---|---|
 | pairwise reciprocity ($\bar k$ normalisation) | nonreciprocal interaction, active matter | no potential, no free energy, harder analysis — but a fixed point still exists |
-| distributional anti-symmetry ($\alpha_+ \neq \alpha_-$) | unbalanced action/reaction | **no fixed point at $q=p$**; collapse or explosion |
+| distributional anti-symmetry ($\alpha_+ \neq \alpha_-$) | unbalanced action/reaction | **no fixed point at $q=p$**; the fixed point moves, or, pushed hard enough, collapse or explosion |
 
 Drifting breaks the first deliberately (it is what normalisation costs) and preserves the second absolutely. Force
 guidance (`THEORY.md` §12.5, Notebook 9 §5) breaks the second deliberately too — and the equilibrium *moves* rather
-than vanishing, because the displacements are untouched and only the weights change. The distinction between
+than vanishing. For the force-aligned kernel that is because the displacements are untouched and only the weights
+change. Force interpolation on temperature-mismatched data is literally $\alpha_+\neq\alpha_-$ (`THEORY.md` §12.3);
+Notebook 9 finds that a mild imbalance of that kind also just moves the fixed point, and that FI fails instead through
+a far-field runaway of stranded samples. The distinction between
 "changing directions" and "changing weights" that Notebook 9 §6 establishes empirically is, in physical terms, the
 distinction between breaking the force law and re-weighting the ensemble.
 
@@ -538,8 +541,8 @@ For molecular data, $p_{\text{data}}$ is invariant under the Euclidean group: $p
 A field that fails to respect this symmetry is not merely inelegant; it makes the model's task harder in a specific,
 measurable way, because the model must then learn to undo an artefact the field introduced.
 
-Notebook 8 §1 measures the artefact: a structure and its rotated copy are at Euclidean distance 18.8, while a
-genuinely perturbed structure is at 1.9. The kernel confidently reports the identical structure as the more
+Notebook 8 §1 measures the artefact: a structure and its rotated copy are at Euclidean distance 13.6, while a
+genuinely perturbed structure is at 1.7. The kernel confidently reports the identical structure as the more
 dissimilar one. Since $\tau$ scales all distances equally, no tuning fixes an inverted ordering.
 
 ### 9.2 Kabsch alignment is gauge fixing
@@ -724,7 +727,7 @@ This explains several otherwise-puzzling facts:
   $a$, not of class $b$, or you are simulating the wrong system.
 * Why the single-positive regime (Notebook 8 §4) is so different: with one fixed charge and $K$ mobile ones, the
   equilibrium is "all mobile charges at the fixed one" — there is nothing to screen and no spatial structure to
-  reproduce. The measured collapse of a 32-particle swarm from spread 0.86 to 0.004 is exactly that.
+  reproduce. The measured collapse of a 32-particle swarm from spread 0.89 to 0.004 is exactly that.
 
 ---
 

@@ -85,8 +85,8 @@ the two structural results: **the gradient of MMD is the un-normalised drifting 
 machine precision), and **drifting is a GAN whose discriminator has been replaced by a fixed kernel**.
 
 **`7. Latent Drifting and Learned Priors`** — drifting inside a frozen VAE latent, why equilibrium in latent space is
-not equilibrium in data space, $\ell_2$-normalised latents, the **moving prior** problem with a diagnostic ratio that
-predicts it, and entropy-scaled priors that make the drift vanish where a predictor is already confident.
+not equilibrium in data space, $\ell_2$-normalised latents, the **moving prior** problem with a diagnostic ratio (whose toy
+never reaches the failing regime — a negative result), and entropy-scaled priors that make the drift vanish where a predictor is already confident.
 
 **`8. Equivariant Drifting on SE(3)`** — Kabsch alignment with the reflection guard, the equivariant field verified to
 floating-point noise, invariant pairwise-distance features with an analytic Jacobian, hard constraints enforced by
@@ -156,11 +156,11 @@ Claims in this repository are measured, not asserted. The load-bearing ones:
 | normalisation buys a factor $10^{10}$ in field magnitude 4 units from the data | `6` §3 |
 | the Drift-React field is exactly equivariant | `8` §3, $6\times10^{-15}$ (float64), $2\times10^{-6}$ (float32) |
 | single-positive attraction is $\tau$-inert — drifting becomes MSE | `8` §4, identical across four decades of $\tau$ |
-| the single-positive fixed point is the reference; swarms collapse | `8` §4, spread 0.86 → 0.004 |
+| the single-positive fixed point is the reference; swarms collapse | `8` §4, spread 0.89 → 0.004 |
 | the Drifting Score Identity holds for Gaussian, fails for Laplace | `9` §1, $N^{-1/2}$ vs a 40–60% residual |
 | $\gamma^\star = 1 - T_{\text{target}}/T_{\text{data}}$ | `9` §4, predicted 0.6, confirmed to $<1\%$ |
 | force interpolation degrades geometric validity; kernel reweighting does not | `9` §6, 3$\times$ vs unchanged |
-| a moving prior damages training in proportion to $\rho$ | `7` §5 |
+| a co-trained prior costs a little, and $\rho$ tells you which regime you are in (the toy stayed at $\rho\le0.2$) | `7` §5 |
 | single-positive conditional drifting on real fragments: 200× cheaper, lDDT 0.449 vs flow's 0.621 | `picodrift` §4.1, 3 seeds |
 | the single-positive failure is over-dispersion (spread 4.5 Å vs flow's 2.4), not collapse | `picodrift` §§4.1, 5 |
 | …and collapse once the network can memorise (512 sequences: spread 6.1 → 0.27 Å, train lDDT 0.994) | `picodrift` §4.5 |

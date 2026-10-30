@@ -35,8 +35,8 @@ appears in *Drift-React* (reaction pathways on SE(3)), *Pepti-drift* (toxicity-r
 
 | file | what it is |
 |---|---|
-| **`THEORY.md`** | The mathematics. Anti-symmetry and equilibrium, kernel design, the fixed-point loss and why the stop-gradient is essential, identifiability, gradient-flow theory, the MMD connection, feature-space normalisation, CFG as a negative mixture, SE(3) equivariance, score/force guidance, discrete and latent drifting, a unified comparison table, and the open problems. |
-| **`PHYSICS.md`** | The same objects as physics. Drifting as a two-component plasma finding mechanical equilibrium: screening, entropic forces, nonreciprocal interactions, overdamped dynamics and mobility, Henderson's theorem and the identifiability question, force matching and coarse-graining, gauge fixing and equivariance, non-conservative fields, and a renormalisation reading of the multi-$\tau$ sum. Ends with a dictionary. |
+| **`THEORY.md`** | The mathematics. Anti-symmetry and equilibrium, kernel design, the fixed-point loss and why the stop-gradient is essential, identifiability, gradient-flow theory, the MMD connection, feature-space normalisation, CFG as a negative mixture, SE(3) equivariance, score/force guidance, discrete and latent drifting, a unified comparison table, the open problems, and looped drifting (test-time compute, verifiers, filtering). |
+| **`PHYSICS.md`** | The same objects as physics. Drifting as a two-component plasma finding mechanical equilibrium: screening, entropic forces, nonreciprocal interactions, overdamped dynamics and mobility, Henderson's theorem and the identifiability question, force matching and coarse-graining, gauge fixing and equivariance, non-conservative fields, and a renormalisation reading of the multi-$\tau$ sum. Ends with a dictionary and a closing section on looped drifting (stationary ensembles, collapse, Lyapunov exponents, the medoid). |
 | **`PROTENIX_DRIFTING.md`** | A design document: what it would take to replace or augment Protenix v2's diffusion module with a drifting head. Three architectures, five risks stated before the design, the diversity problem and four candidate solutions, an evaluation protocol, and explicit kill criteria. No code. |
 | **`REFERENCES.md`** | Source papers. |
 | **`picodrift/`** | The method applied, as a production training stack on Modal: picofold's flow matching replaced by drifting, with a head-to-head comparison over four rounds of experiments. A separate git repository with its own `README.md`, `CLAUDE.md` and a paper-style report in `reports/`. |
@@ -50,8 +50,8 @@ Each is self-contained and runnable; each verifies its claims numerically rather
 ### Prerequisites
 
 **`0a. Kernels, Mean Shift, and Vector Fields`** — what a kernel is, kernel density estimation, the mean-shift
-vector, attraction and repulsion, flowing points along a field, conservative versus non-conservative fields, and why
-softmax normalisation is not optional.
+vector, attraction and repulsion, flowing points along a field, conservative versus non-conservative fields, why
+softmax normalisation is not optional, and a Monte-Carlo check that the Gaussian mean-shift vector is Tweedie's denoiser.
 
 **`0b. Pushforward Maps and Distances Between Distributions`** — the pushforward, measuring the gap between two
 distributions from samples alone, the continuity equation and Wasserstein gradient flow, and why batch size matters
@@ -128,6 +128,17 @@ of positives. Multi-stage drifting along the flow path does not beat a single ju
 limit either. See `picodrift/README.md` §§4.5–4.7 and 5, and the paper-style write-up in
 `picodrift/reports/picodrift_report.md`.
 
+### Extension: test-time compute
+
+**`12. Looped Drifting`** — what a depth knob does to a one-step model, borrowed from the looped-flow literature and
+measured on a 2-D toy. A tied loop reaches TV 0.156 ± 0.018 at 8,930 parameters against an equal-FLOPs untied network's
+0.181 ± 0.013 at 35,522, but it **gives up 1-NFE**. Supervising every iterate, the looped-flow recipe, is *worse* (0.361
+± 0.068) because a drifting loss pins every marginal to $p$ and the identity satisfies that. Loops have no fixed point
+and do not extrapolate past their training depth; self-conditioning settles exactly but on a worse answer. The loop
+residual is a weak verifier (AUROC 0.50–0.71); the bank field norm $\|\mathbf{V}^{+}\|$, the Tweedie residual of
+Notebook 0a, is a strong one (0.91–0.96). Filtering trades coverage for validity, and the best use of a fixed budget
+splits it between depth and seeds, but only when a scorer works.
+
 ---
 
 ## Reading orders
@@ -139,6 +150,7 @@ limit either. See `picodrift/README.md` §§4.5–4.7 and 5, and the paper-style
 * **I want to apply it to sequences.** `7` → `10`, then `THEORY.md` §13.
 * **I want to see it fail on real structures, and why.** `8` §4, then `11`, then `picodrift/README.md` §§4–5, then
   `PROTENIX_DRIFTING.md` §8.
+* **I want test-time compute, verifiers, or to rank candidates.** `0a` (Tweedie), `12`, then `THEORY.md` §16.
 * **I am debugging a run that will not train.** `3` §§7–8, then `PHYSICS.md` §§2.3, 6.2, 11.
 
 ---
@@ -151,6 +163,7 @@ Claims in this repository are measured, not asserted. The load-bearing ones:
 |---|---|
 | $\mathcal{L} = \|\mathbf{V}\|^2$ exactly, and the stop-gradient is what makes it so | `0c`, to $10^{-9}$ |
 | the Gaussian mean-shift vector is $\tau^2\times$ the score of the KDE | `0a` §6, to $10^{-7}$ |
+| …and is Tweedie's denoiser: Monte-Carlo posterior mean agrees within two standard errors | `0a` §6 |
 | breaking anti-symmetry collapses the model | `1` §9 |
 | the MMD gradient *is* the un-normalised drifting field | `6` §3, to $10^{-7}$ relative |
 | normalisation buys a factor $10^{10}$ in field magnitude 4 units from the data | `6` §3 |
@@ -169,6 +182,13 @@ Claims in this repository are measured, not asserted. The load-bearing ones:
 | distilled positive sets + internal coordinates: 1-NFE lDDT 0.612 vs flow's 0.621 at 200 NFE | `picodrift` §4.5, 3 seeds |
 | more positives without more information do not help: noisy references 0.540, embedding neighbours 0.530 | `picodrift` §4.6 |
 | N drifting stages along the flow path never beat one jump: N = 4 independent 0.594 vs N = 1 0.611; rollout 0.610 | `picodrift` §4.7, 3 seeds |
+| a tied loop matches an equal-FLOPs untied net at a quarter of the parameters (TV 0.156 vs 0.181) but is not 1-NFE | `12` §3, 3 seeds |
+| on real fragments, looping buys no accuracy: 2 detached loops 0.616 vs 0.613 for one pass and for twice the untied depth; BPTT loops collapse the ensemble in episodes | `picodrift` §4.8, 3 seeds |
+| distilling from the consensus-central 4 of 16 bank structures beats the 200-step teacher at 1 NFE (0.625 vs 0.621; a random 8 gives 0.611), at a diversity cost (best-of-5 0.679 → 0.669) | `picodrift` §4.8, 3 seeds |
+| a loss on every iterate is worse than on the last (TV 0.361 vs 0.156) | `12` §3, 3 seeds each |
+| a loop does not extrapolate; self-conditioning reaches an exact fixed point on a worse answer (TV 0.40 vs 0.29) | `12` §4, one run per row |
+| the loop residual is a weak verifier (AUROC 0.50–0.71); the bank field norm is a strong one (0.91–0.96) | `12` §5 |
+| filtering trades coverage for validity (coverage 0.99 → 0.88 → 0.54 at keep 100% → 50% → 10%) | `12` §6 |
 
 ---
 

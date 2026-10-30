@@ -49,6 +49,7 @@ REFERENCES.md           source papers
 9 *.ipynb               score and force guidance toward Boltzmann
 10 *.ipynb              discrete drifting for peptides
 11 *.ipynb              bridge to picodrift: fragments, lDDT, chirality, internal coords, samplers, single positives
+12 *.ipynb              looped drifting: tied loops, exposure bias, verifiers, filtering, depth vs seeds
 
 picofold/               upstream flow-matching baseline (separate git repo, read-only)
 picodrift/              drifting replacement for picofold, on Modal (separate git repo; see picodrift/CLAUDE.md)
@@ -67,7 +68,7 @@ Every notebook follows the same shape, and new material should match it.
   short, dense, and free of decoration.
 * **Ablations over assertions.** "$X$ matters" is established by running with and without $X$ and printing both.
 * **Failure modes are content.** A negative result — the single-positive collapse in notebook 8, the mode collapse
-  in notebook 10, the moving prior in notebook 7 — is more valuable than another success, and gets the same care.
+  in notebook 10, the moving prior in notebook 7, the all-iterates loss and the loop residual in notebook 12 — is more valuable than another success, and gets the same care.
 * **Cross-reference precisely.** Notebooks cite `THEORY.md` by section and equation number, and cite each other by
   notebook and section. Keep those accurate when editing either side.
 * **Notebooks are stored without outputs.** `execution_count: null`, empty `outputs`. Run them to see results;
@@ -111,6 +112,12 @@ Collected because each of these has already caused a wrong result in this reposi
 6. **EMA decay must match the run length.** A decay of 0.9995 has a 2000-step horizon and actively hurts a
    2500-step run. Warm the decay up: $d_s = \min(d, (1+s)/(10+s))$.
 7. **`torch.histogramdd` needs CPU tensors.** The `tv2d` helpers call `.cpu()` for this reason.
+8. **A loop's convergence is not a quality signal.** In notebook 12 the loop residual separates good from bad samples at
+   AUROC 0.50–0.71, a self-conditioned loop settles *exactly* (step 0.0000) on a worse answer, and a loop run past its training
+   depth degrades. Use the bank field norm $\|\mathbf{V}^{+}\|$ if you need a per-sample score, and never read a depth the
+   model was not trained at.
+9. **A loss on every iterate pins every marginal to $p$.** The identity step then satisfies it, so the loop is never asked to
+   refine. Supervise the last iterate (notebook 12 §3, `THEORY.md` §16.2).
 
 ## Editing
 
@@ -129,4 +136,5 @@ There is no test suite, so verification is: run the affected notebook end to end
 still match the prose. A convenient way to run one headlessly is to execute its code cells in order with a matplotlib
 `Agg` backend, which surfaces exceptions without needing a display.
 
-Notebooks 4 and 7 train small networks on MNIST and take a few minutes on a GPU; the rest are faster.
+Notebooks 4 and 7 train small networks on MNIST and take a few minutes on a GPU; the rest are faster. Notebook 12 trains
+about twenty small 2-D generators and takes roughly ten minutes on a CPU (it needs no GPU).

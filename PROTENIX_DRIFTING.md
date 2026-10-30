@@ -399,6 +399,23 @@ Plus two structure-specific ones:
 
 ---
 
+### 6.7 Optional: a looped head, and reference-free ranking
+
+Two additions to Design A follow from `THEORY.md` §16, and both are cheap to specify. picodrift measured both at toy scale (§15); neither has been measured on Protenix.
+
+**A looped head.** Apply the head's trunk $K$ times to the same noise, carrying its hidden state (`THEORY.md` eq. 64). What the theory says to expect:
+
+* **It cannot beat the bank.** At equilibrium the head matches the law its positives come from (`THEORY.md` eq. 68), whatever its depth. A loop only shrinks the approximation error between the one-pass head and that law, which is bounded by the gap
+  the one-pass head already leaves to its teacher. Adding depth is the wrong lever if the one-pass head is already close to the teacher, and the right one only if it is not.
+* **It gives up 1-NFE.** $K$ passes cost $K$ trunk evaluations; the head is still orders of magnitude cheaper than 200 diffusion steps, but the claim becomes "$K$ passes", not "one".
+* **Detach the carry and supervise the last pass only.** A loss on every pass pins every intermediate marginal to the positive law and is minimised by the identity (`THEORY.md` §16.2). Backpropagating through the loop multiplies per-pass Jacobians (eq. 65–66), which is a route to a collapsed swarm.
+* **New diagnostic, non-negotiable for a looped head.** Log the ensemble `spread` (§6.6) at every logging step, not only at the end: a collapse episode can come and go within a run and leave only a worse final number.
+* **Do not read a loop's step-to-step residual as confidence** (`THEORY.md` §16.3–16.4).
+
+**Reference-free ranking of an ensemble.** Rank the $S$ samples for one input by their mean pairwise dRMSD to the other samples and keep the lowest (`THEORY.md` eq. 69, minimum-Bayes-risk decoding). It needs no reference and no loop, costs $S$ one-step evaluations, and is
+complementary to the confidence head rather than a replacement: the confidence head is trained to predict accuracy, while the consensus score measures agreement within the model's own distribution. Its failure mode is a model whose ensemble is confidently
+wrong in one mode, so it should be evaluated against the confidence head's ranking on the same ensembles before either is trusted for screening, and reported with the coverage cost of selection (`THEORY.md` §16.5).
+
 ## 7. The field, concretely, for structures
 
 ### 7.1 The construction
@@ -751,6 +768,15 @@ not change.
    §15.5 notes that drifting's scaling behaviour in batch size is largely uncharted, and structure prediction pushes
    on exactly that axis.
 
+6. **Can a stored positive bank rank drifting samples?** Notebook 12 §5 finds that on a 2-D toy the bank field norm
+   $\|\mathbf{V}^{+}\|$ separates good from bad samples at AUROC 0.91–0.96, where a loop's step-to-step residual manages
+   0.50–0.71, and §6 finds that filtering by it trades coverage for validity (`THEORY.md` §§16.4–16.5). For screening a
+   conditional drifting head with picodrift's distilled positive set, the analogue is: does the field norm against the
+   bank correlate with lDDT to the reference, and does keeping the best half of an overgenerated set help the metric
+   *without* shrinking ensemble spread? Nothing here has been measured on structures. The toy's label is itself a
+   nearest-data distance, so a real test needs a quality label (lDDT to the experimental structure) that is independent of
+   the bank.
+
 ---
 
 ## 15. Empirical update: what picodrift measured
@@ -771,6 +797,9 @@ directional evidence, not as Protenix measurements.
 | §12.2: aggregate lDDT will not show per-sample failures | **Confirmed with a sharper example.** An internal-coordinate regressor scored a respectable lDDT (0.556) while 61% of its samples were *mirror images*. lDDT and dRMSD are reflection-invariant, so measure chirality explicitly. |
 | Q4 (§14): CFG as a negative mixture for structures | **A real lever for a broken field, idle for a good one.** Using other sequences' references as negatives gives +0.04 to +0.05 over naive drifting (3 seeds, α ∈ [1.2, 2]), and nothing once distilled positives are used (0.613 vs 0.612). |
 | One step versus few steps | **One call is enough.** N drifting stages along the flow path never beat the single jump: 0.611 (N = 1), 0.613 (N = 2), 0.594 (N = 4), 0.579 (N = 8), and 0.610 for N = 4 trained on its own rollouts. Without a teacher, where the noisy intermediates at least supply positive sets, it is the same: 0.556 (N = 1) against 0.530 (N = 4) and 0.499 (N = 8). A few-step drifting head adds cost, not quality. |
+| §6.7: a looped head | **No accuracy gain; detach the carry.** Two loops with the carry detached score lDDT 0.616 against 0.613 for one pass and for twice the untied depth (3 seeds); four and eight loops do not improve (0.614, 0.612). Backpropagating through the loop collapses the ensemble in episodes (0.575 at four loops) and gradient clipping does not fix it. Without a teacher, loops hurt (0.555 → 0.529). |
+| §6.7: consensus ranking of an ensemble | **Works modestly, untested against a confidence head.** The consensus pick of 5 samples lifts lDDT 0.613 → 0.624 (flow: 0.621 → 0.629) at within-sequence ρ ≈ 0.1; a loop's one-more-pass residual does not rank (ρ between −0.02 and 0.06). |
+| §8.2 refined: which positives | **Selecting them raises the ceiling, at a cost in diversity.** Distilling from the consensus-central 4 of 16 bank structures gives lDDT 0.625 at 1 NFE, above the teacher's 0.621; a random 8 of 16 gives 0.611. Best-of-5 falls 0.679 → 0.669 and spread 2.68 → 1.84 Å. |
 
 **What this changes in the design.**
 
@@ -781,5 +810,7 @@ directional evidence, not as Protenix measurements.
   bond and clash terms on top.
 * **Add a chirality check to the §12.2 validity suite.**
 * **Do not plan a few-step drifting variant.**
+* **Do not plan a looped head for accuracy.** Depth cannot beat the information in the positives (`THEORY.md` §16.8); if the one-pass head is already near its teacher, a loop recovers a few thousandths at most, and backpropagating through it is unstable. Detach the carry if you try.
+* **If the goal is one good structure per input, filter the distillation bank by consensus.** It moved the one-step student above its teacher at no inference cost, but it narrows the ensemble, so keep an unfiltered head for screening that needs diverse candidates (`picodrift/README.md` §4.8).
 * **Open question.** The 1-NFE head's quality is capped by its teacher. Whether the drifting field adds anything over
   plain regression onto teacher samples has not yet been measured; it is the next picodrift control.

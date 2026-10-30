@@ -31,6 +31,7 @@ Equation numbers of the form "(paper Eq. 11)" refer to that paper.
 13. [Discrete and latent drifting](#13-discrete-and-latent-drifting)
 14. [Unified comparison with other paradigms](#14-unified-comparison-with-other-paradigms)
 15. [Open problems](#15-open-problems)
+16. [Looped drifting and test-time compute](#16-looped-drifting-and-test-time-compute)
 
 ---
 
@@ -390,6 +391,16 @@ Consequently the Gaussian drifting field is
 $$\mathbf{V}^{\text{gauss}}_{p,q}(\mathbf{x}) = h^2\big(s_{p,h}(\mathbf{x}) - s_{q,h}(\mathbf{x})\big) = h^2\,\nabla\log\frac{\rho_{p,h}(\mathbf{x})}{\rho_{q,h}(\mathbf{x})}, \tag{28}$$
 
 a **gradient field** — conservative, curl-free.
+
+**Tweedie's formula is the same identity.** If $\mathbf{y}=\mathbf{x}+\sigma\boldsymbol\xi$ with $\mathbf{x}\sim\alpha$ and
+$\boldsymbol\xi\sim\mathcal{N}(0,I)$, the posterior mean is
+$\mathbb{E}[\mathbf{x}\mid\mathbf{y}]=\mathbf{y}+\sigma^{2}\nabla\log p_\sigma(\mathbf{y})$ with $p_\sigma=\mathcal{N}(0,\sigma^2 I)*\alpha$.
+For an empirical $\alpha$, $p_\sigma=\rho_{\alpha,\sigma}$, so (27) gives
+$\mathbb{E}[\mathbf{x}\mid\mathbf{y}]-\mathbf{y}=\mathbf{m}_{\alpha,\sigma}(\mathbf{y})$: the Gaussian mean-shift vector at $h=\sigma$ is the
+ideal denoiser's displacement. The attraction half $\mathbf{V}^{+}_p$ is therefore one ideal denoising step toward the data; the
+repulsion half $\mathbf{V}^{-}_q$ has no diffusion counterpart. The two differ in where the field is evaluated: diffusion evaluates it at
+corrupted *data* at inference time, drifting at the generator's *own samples* during training. Verified by Monte Carlo (not via
+the identity) in Notebook 0a §6.
 
 ### 7.2 Wasserstein-2 gradient flow
 
@@ -965,6 +976,148 @@ Stated by the authors, plus what the follow-up literature has and has not settle
    output) pairs. Drift-React's joint normalisation over an augmented target set (§11) is the current answer; whether
    it recovers *aleatoric* diversity — the ensemble of plausible outputs for one input — rather than just the mean, is
    open, and it is the crux of applying drifting to structure prediction (see `PROTENIX_DRIFTING.md`).
+
+---
+
+## 16. Looped drifting and test-time compute
+
+A one-step generator has a fixed compute budget; diffusion and flow models can spend more to get better. The follow-up literature on
+looped flows (summarised in the sibling `learning-diffusion` repository, `THEORY.md` §12) gives flows a depth knob by applying one tied
+network repeatedly to a carried state. This section asks what that means for a drifting model. Every measurement quoted is from
+Notebook 12 (one 2-D toy; one run per row unless an $\pm$ is shown).
+
+### 16.1 The loop and its accounting
+
+$$\mathbf{z}_{k+1}=\mathbf{z}_k+f_\theta(\boldsymbol{\epsilon},\mathbf{z}_k),\qquad \mathbf{x}_k=W\mathbf{z}_k,\qquad \mathbf{z}_0=\mathbf{0}. \tag{62}$$
+
+The same $\boldsymbol{\epsilon}$ enters at every $k$, so $\mathbf{x}_1,\mathbf{x}_2,\dots$ is one trajectory and every $\mathbf{x}_k$ is a candidate
+output. Depth $k$ costs $k$ evaluations of $f_\theta$: **a loop gives up 1-NFE and keeps 1-block parameters.** The honest comparators are
+therefore the equal-parameter one-pass network (depth 1) and the equal-FLOPs one-pass network ($K$ *untied* blocks). Measured at $K=4$:
+TV 0.428 (one block), 0.181 ± 0.013 (four untied blocks, 35,522 parameters), 0.156 ± 0.018 (four loops, 8,930 parameters). A loop is a
+parameter-efficient way to buy depth, not a better use of FLOPs.
+
+### 16.2 What a loss at iterate $k$ asks for
+
+Let $q_k$ be the law of $\mathbf{x}_k$. The drifting loss at iterate $k$ is
+
+$$\mathcal{L}_k=\mathbb{E}\big\|\mathbf{x}_k-\texttt{sg}\big(\mathbf{x}_k+\mathbf{V}_{p,q_k}(\mathbf{x}_k)\big)\big\|^2,\qquad \mathbb{E}\mathcal{L}_k=\mathbb{E}\|\mathbf{V}_{p,q_k}\|^2, \tag{63}$$
+
+with negatives drawn from the batch at the same iterate. Its equilibrium is a statement about the *marginal* $q_k$ (§4.1): $q_k=p$.
+It carries no information about how $\mathbf{x}_{k-1}$ became $\mathbf{x}_k$. This is the difference from a flow step, whose target is
+conditional on the previous iterate (denoise from $t_i$ to $t_{i+1}$), so intermediate and final losses are compatible there.
+
+Put a loss on **all** iterates and the equilibrium is $q_1=\dots=q_K=p$. The maps $T_k:\mathbf{x}_{k-1}\mapsto\mathbf{x}_k$ then only need to push
+$p$ to $p$, and the identity does that: a one-pass sampler followed by $K-1$ identity steps is a global minimiser, so **the all-iterates loss gives the
+loop nothing to refine.** Put the loss on the last iterate only and $q_K=p$ is the only constraint, so early iterates are free to be intermediate representations.
+This is the explanation I would offer for the measurement, and it is consistent with it but not isolated by it:
+loss on all iterates (stop-gradient) 0.361 ± 0.068 against 0.156 ± 0.018 for BPTT with a last-iterate loss, and 0.293 for stop-gradient with a last-iterate loss (single run).
+
+### 16.3 A loop need not have a fixed point, and the horizon is the training depth
+
+Training drives $\mathbf{V}_{p,q_k}\to\mathbf{0}$ in distribution. An iterate map with $T_{\#}q_{k-1}=q_k=p$ may move every sample, so $\|\mathbf{x}_{k+1}-\mathbf{x}_k\|$
+need not go to zero, and nothing in (63) penalises it. Two consequences, both measured:
+
+* **Exposure bias.** No loss is evaluated at depth beyond the training depth $J$, so $q_k$ for $k>J$ is unconstrained. Training on detached closed-loop carries of random length $<J$
+  (in the spirit of Fixed-Point Forcing, not a reproduction of it) moves the good range with $J$: best at depths $4$–$6$ for $J=8$ (TV 0.29–0.30) and failing by $24$ (0.74); best at $12$ for $J=16$ (0.28), failing by $24$ (0.54).
+  It widens the range; it does not create a contraction, and the mean step stays near 0.04.
+* **Self-conditioning has fixed points, but not necessarily the right one.** With the sample as the carried state, $\mathbf{x}_{k+1}=\mathbf{x}_k+f_\theta(\boldsymbol{\epsilon},\mathbf{x}_k)$, the map $f_\theta=0$ is
+  admissible, and once the loop reaches it $q_k$ freezes at whatever $q_J$ the training horizon left. Measured: the step falls to 0.0000 by $k=8$ and TV freezes at 0.40, worse than the latent loop's 0.29.
+  Convergence is not correctness, which is the diffusion literature's "confidently wrong" fixed point, reproduced.
+
+### 16.4 Verifiers: the loop residual and the Tweedie residual
+
+The loop residual $r_k=\|\mathbf{x}_{k+1}-\mathbf{x}_k\|$ is the natural self-check, but by §16.3 it certifies nothing about $q_k$. Measured AUROC for separating good from bad samples is 0.50–0.71.
+
+A score drifting already owns is the attraction field itself, $\|\mathbf{V}^{+}_{\text{bank}}(\mathbf{x})\|$ against a stored set of positives. For the Gaussian kernel at $h=\sigma$ this is, by §7.1, exactly the displacement of the ideal denoiser,
+$\|\mathbb{E}[\mathbf{x}^{*}\mid\mathbf{x}]-\mathbf{x}\|$: how far one denoising step toward the data would move the sample. (The Laplace kernel used in training gives the analogous kernel-weighted displacement, without the Tweedie identity.) It needs no loop and works for any one-step model, but it needs data at screening time. Measured AUROC 0.912–0.956 with a 512-point bank. Because the label and the score are both nearest-data distances, part of that is by construction; what it demonstrates is that a small bank suffices.
+
+### 16.5 Filtering reshapes the distribution
+
+Keeping samples with score $s(\mathbf{x})\le c$ gives $q_c(\mathbf{x})\propto q(\mathbf{x})\mathbf{1}[s(\mathbf{x})\le c]$. Its support is contained in that of $q$, so **a filter cannot add mass the model lacks.** When $s$ is a distance to the data it
+preferentially removes the tails of $q$ along with its failures, so coverage falls even as validity rises. Measured with the field-norm score on the random-depth model: good fraction 0.883 → 0.987 → 0.995 and coverage 0.99 → 0.88 → 0.54
+as the kept fraction goes 100% → 50% → 10%, with TV 0.300 → 0.208 → 0.373 (a mild filter helps TV by removing off-manifold mass; an aggressive one narrows the distribution past what TV forgives).
+
+### 16.6 Depth versus seeds
+
+With a budget of $B=KN$ block calls, depth is useful up to the horizon $J$ of §16.3 and harmful beyond it, while best-of-$N$ is useful only through its scorer and sheds coverage as $N$ grows. Measured at $B=24$ with the field-norm scorer, TV is
+0.298 for $(K,N)=(1,24)$, 0.198 for $(8,3)$, 0.218 for $(6,4)$ and 0.727 for $(24,1)$; with the loop residual as scorer the best is 0.365. The optimum is interior, at a depth near the horizon, and exists only when the scorer does.
+
+### 16.7 The carried state, and the gradient through a loop
+
+Notebook 12 carries a latent that the block adds to. picodrift (`picodrift/`, `--loops R`) carries the transformer's final hidden state and
+re-reads it at the input of the next pass:
+
+$$\mathbf{h}_k=\Phi_\theta(\mathbf{s},\boldsymbol{\epsilon},\mathbf{h}_{k-1})=\mathrm{Trunk}_\theta\big(E(\mathbf{s})+W_{\mathrm{in}}\boldsymbol{\epsilon}+C\,\mathbf{h}_{k-1}\big),\qquad \mathbf{x}_k=\mathrm{head}(\mathbf{h}_k), \tag{64}$$
+
+with the same noise $\boldsymbol{\epsilon}$ at every pass, no $\mathbf{h}_0$ term, and $C=0$ at initialisation (so every pass starts identical to the first and
+the network learns to use the carry). With a loss on the last pass only, the stop-gradient target means the regression gradient on $\mathbf{x}_K$ is
+$-2\eta\mathbf{V}(\mathbf{x}_K)$ (§4.2), and the parameter gradient is that vector pulled back through the loop:
+
+$$\frac{\partial\mathbf{x}_K}{\partial\theta}=\frac{\partial\,\mathrm{head}}{\partial\mathbf{h}_K}\sum_{k=1}^{K}\Big(\prod_{j=k+1}^{K}J_j\Big)\frac{\partial\Phi}{\partial\theta}\Big|_{k},\qquad J_j=\frac{\partial\mathbf{h}_j}{\partial\mathbf{h}_{j-1}}. \tag{65}$$
+
+**Stopping the gradient on the carry** ($\mathbf{h}_{k-1}\to\texttt{sg}(\mathbf{h}_{k-1})$) deletes every term with $k<K$, leaving the one-pass gradient
+$\tfrac{\partial\,\mathrm{head}}{\partial\mathbf{h}_K}\tfrac{\partial\Phi}{\partial\theta}\big|_K$: a truncated-BPTT window of one. Forward cost is $K$ passes either way; backward is $K$ passes
+for (65) and one for the truncation.
+
+The same Jacobian chain governs the **noise sensitivity** that sets the ensemble's spread. Since $\boldsymbol{\epsilon}$ enters at every pass,
+
+$$\Sigma_K:=\frac{\partial\mathbf{x}_K}{\partial\boldsymbol{\epsilon}}=\frac{\partial\,\mathrm{head}}{\partial\mathbf{h}_K}\sum_{k=1}^{K}\Big(\prod_{j=k+1}^{K}J_j\Big)\frac{\partial\Phi}{\partial\boldsymbol{\epsilon}}\Big|_{k}, \tag{66}$$
+
+and the local spread of $q_K$ is, to first order, $\Sigma_K\Sigma_K^{\top}$. **A swarm that has collapsed is weakly restored.** Let $\mathbf{x}_i,\mathbf{x}_j$ be two samples of one
+swarm at separation $\delta$. At fixed positives and fixed other samples, $\mathbf{V}$ is a Lipschitz function of $\mathbf{x}$ away from coincident points, so
+
+$$\|\mathbf{V}(\mathbf{x}_i)-\mathbf{V}(\mathbf{x}_j)\|\le \mathrm{Lip}(\mathbf{V})\,\delta. \tag{67}$$
+
+The part of the field common to the swarm moves it rigidly; only the difference can change the spread, and it is $O(\delta)$. This is pitfall 6 of `CLAUDE.md` (identical samples
+have nothing to repel) in dynamic form: the signal that would push $\Sigma_K$ back up shrinks with $\Sigma_K$ itself.
+
+**The conjecture, and what picodrift measured.** Equation (66) is a sum of products of $K-1$ Jacobians. If the typical Jacobian has dominant eigenvalue $\rho$ along the noise-carrying directions, then
+$\|\Sigma_K\|\sim\rho^{K}$ and the gradient (65) scales the same way. For $\rho<1$ the product compounds toward collapse, and by (67) collapse is slow to leave; for $\rho>1$ the gradient explodes. Training should be
+stable only in a band around $\rho\approx1$, and the truncation, which removes the products from the gradient, should be stable at any depth. `picodrift`'s `loopdiag` command measures $\rho$ (power iteration on each pass's Jacobian), $\|\Sigma_k\|_F$
+(Hutchinson) and the full-versus-truncated gradients on trained checkpoints (`picodrift/results/round5/loopdiag.md`; 20 looped runs, final weights only, so it is **post hoc and sees only the end state**). What it found:
+
+* **Both branches occur.** One 4-loop BPTT run contracted: $\rho=0.02$, $\|\Sigma_k\|_F$ falling from 83 to 0.3 Å per unit noise over the passes, ensemble spread 0.03 Å, lDDT 0.587. Others expanded: $\rho=10$ and $\|\Sigma_k\|_F$ growing 279-fold (lDDT 0.565); $\rho=6.7$ (0.577); $\rho=4.2$ with the
+  largest gradient seen (0.549).
+* **The band is predictive but not sufficient.** Every run with $\max_k\rho\ge3$ or $\rho\le0.02$ is poor (6 runs, lDDT 0.549–0.589), and all 11 runs with lDDT $\ge0.60$ have $\rho\in[1.5,2.6]$. The thresholds were chosen after seeing the table, so this is exploratory. And 3 of the 9 poor runs lie inside the band (a 4-loop BPTT run, one clipped run, the all-iterates run),
+  so the end-of-training $\rho$ misses mid-run episodes: that BPTT run's spread had collapsed and recovered earlier in training.
+* **The truncation prediction held.** All 7 detached runs (2, 4 and 8 loops) have $\rho\in[1.5,2.6]$, noise sensitivity that shrinks over the passes (last/first 0.26–0.77), and lDDT 0.612–0.617. Their logged spread never collapses: the lowest value over 7 runs × 101 logged steps is 0.40 Å at a single step of one run, and every other run stays above 1.8 Å, whereas each of the three 4-loop BPTT runs spends 30–75 of its 101 logged steps below 0.5 Å (`picodrift/results/round5/curves/`).
+* **Clipping cannot fix the direction.** In the worst clipped runs the full BPTT gradient is 16–29 times larger than the carry-detached one and nearly orthogonal to it (cosine 0.10 and 0.03). Clipping rescales the vector and leaves its direction, which is dominated by the early-pass terms of (65), so the useful last-pass
+  component is a small part of every step. That is consistent with clipping failing to rescue BPTT (lDDT 0.601 and 0.572 for 2 and 4 loops, against 0.616 and 0.614 detached).
+
+What is not established: causation (the diagnostic is correlational, one checkpoint per run), the training-time trajectory of $\rho$, and why 4-loop BPTT sometimes contracts and sometimes expands.
+
+### 16.8 An information ceiling: why depth cannot beat the bank
+
+Let $q_T(\cdot\mid\mathbf{s})$ be the law the positives are drawn from (picodrift's distilled bank: the flow teacher's samples). At the equilibrium of (63) the model matches it, $q_K(\cdot\mid\mathbf{s})=q_T(\cdot\mid\mathbf{s})$.
+A loop enlarges the class $\mathcal{F}_K$ of maps $\boldsymbol{\epsilon}\mapsto\mathbf{x}$ the network can represent, with $\mathcal{F}_1\subseteq\mathcal{F}_K$, but **the target law does not depend on $K$**: if some member of $\mathcal{F}_1$ already pushes the noise to $q_T$, the set of minimisers
+is the same set of laws for every $K$. Any expected score that is linear in the law, as lDDT against a fixed reference is,
+
+$$\mathbb{E}_{\mathbf{x}\sim q_K}\,\mathrm{lDDT}(\mathbf{x},\mathbf{y}^\star)=\mathbb{E}_{\mathbf{x}\sim q_T}\,\mathrm{lDDT}(\mathbf{x},\mathbf{y}^\star)\qquad\text{at equilibrium}, \tag{68}$$
+
+so the ceiling is the teacher's. What depth can buy is a smaller approximation error $\|q_K-q_T\|$, and that is bounded by the gap the one-pass student already leaves. For picodrift the teacher scores 0.621 and the one-pass student 0.613: at most 0.008 of lDDT is
+recoverable by any amount of capacity, depth included. This is the same conclusion as round 4 ("the number of steps is not the limit", `picodrift/README.md` §4.7), reached from the other side: **the limit is the information in the positives, not the capacity of the generator.**
+
+**Corollary: the ceiling moves with the positives.** Equation (68) holds for whatever law the positives are drawn from, so replacing the bank by its consensus-central structures (eq. 69 applied to the bank, never looking at the reference)
+replaces $q_T$ by a narrower law $q_T^{c}$ whose expected score can be higher. In picodrift this raised the bank's lDDT to the reference from 0.627 to 0.634 (keep 8 of 16) and 0.637 (keep 4); students trained on them scored 0.622 and 0.625, above the unfiltered student's 0.613 and the 200-step teacher's 0.621, while 8 positives drawn at random scored 0.611
+(`picodrift/README.md` §4.8). By the same argument the student's diversity is capped by the filtered law's: best-of-5 fell from 0.679 to 0.669 and the ensemble spread from 2.68 to 1.84 Å, the coverage cost of §16.5 paid at training time instead of at inference time.
+
+### 16.9 Reference-free ranking is minimum-Bayes-risk decoding
+
+Given $S$ samples $\mathbf{x}_1,\dots,\mathbf{x}_S\sim q(\cdot\mid\mathbf{s})$ and a distance $d$ (dRMSD), the consensus score is
+
+$$c_i=\frac{1}{S-1}\sum_{j\ne i}d(\mathbf{x}_i,\mathbf{x}_j),\qquad \hat\imath=\arg\min_i c_i. \tag{69}$$
+
+$c_i$ estimates $\mathbb{E}_{\mathbf{X}\sim q}\,d(\mathbf{x}_i,\mathbf{X})$, so $\mathbf{x}_{\hat\imath}$ is the empirical **medoid**: a Monte-Carlo estimate of the minimum-Bayes-risk output $\arg\min_{\mathbf{y}}\mathbb{E}_q\,d(\mathbf{y},\mathbf{X})$. It needs no
+reference, no bank and no loop. It helps exactly when $q$ is unimodal and roughly symmetric around the truth in the metric $d$, so that the centre of the ensemble is nearer the truth than a typical member; it cannot help when $q$ is
+multimodal with the truth in a minor mode, where the medoid picks the major one. It also reshapes the output distribution (the medoid of $S$ draws is not a draw from $q$), the same coverage cost as §16.5. Its price is $S$ network evaluations, which is cheap for a one-step model and $200\times$ dearer for a
+200-step flow. The loop residual of §16.4 is a different object: it measures how far a sample moves under one more pass, which §16.3 shows is unrelated to how close the ensemble centre is.
+
+### 16.10 Open
+
+* A loss term that asks for a fixed point *and* $q_k=p$, i.e. Fixed-Point Forcing proper rather than closed-loop carries: does it extend the horizon without freezing at a wrong answer?
+* Whether the failure of all-iterates supervision (§16.2) survives in a setting where intermediate iterates have natural targets, such as a drifting model run along a flow path (`picodrift` §4.7, which found stages do not beat one jump).
+* Whether the bank field norm ranks real structure predictions. That is a statement about Protenix, and nothing here measures it (`PROTENIX_DRIFTING.md` §14).
+* The Jacobian measurements of §16.7 *during* training rather than at the end, to see whether collapse and explosion are entered through $\rho$ leaving the band or through something the end state hides.
 
 ---
 

@@ -28,6 +28,7 @@ everything below.
 12. [Finite-particle effects and the N-body problem](#12-finite-particle-effects-and-the-n-body-problem)
 13. [Where the analogy misleads](#13-where-the-analogy-misleads)
 14. [Dictionary](#14-dictionary)
+15. [Looped drifting: a second iteration, inside the map](#15-looped-drifting-a-second-iteration-inside-the-map)
 
 ---
 
@@ -796,6 +797,48 @@ Physical intuition is a tool, not an authority. Places where it will actively mi
 | EMA | time-averaging a noisy ensemble measurement | §12.1 |
 | self-exclusion mask | self-energy subtraction (Ewald) | §12.2 |
 | moving prior | a time-dependent Hamiltonian; no fixed point to relax to | §13.2 of `THEORY.md` |
+
+---
+
+## 15. Looped drifting: a second iteration, inside the map
+
+Everything above has one iteration: training relaxes the generator's output particles under the field (§6), and inference is a single map. Looped drifting (`THEORY.md` §16) adds
+a second, *inside* the map: a carried hidden state $\mathbf{h}_k$ updated $K$ times from the same noise, so that $\mathbf{x}_k=F_k(\boldsymbol{\epsilon})$ is a deterministic
+discrete-time dynamical system on the noise input. Each correspondence below is marked **exact** (a statement about the mathematics that holds as written) or **analogy** (a reading that predicts, but does not follow).
+
+**15.1 A stationary ensemble is not a rest state (exact).** If the loop's maps satisfy $(T_k)_\#q_{k-1}=q_k=p$, the *ensemble* is stationary while every particle may move. A rotation by any angle carries a
+rotationally symmetric distribution onto itself and moves every point; the set of all such maps is the group $G_p=\{T: T_\#p=p\}$, which is infinite-dimensional for any $p$ with a density. This is Liouville's
+statement that an invariant measure of a flow does not make the flow trivial, and it is why the loop residual $\|\mathbf{x}_{k+1}-\mathbf{x}_k\|$ certifies nothing (`THEORY.md` §16.3): the loss constrains the measure, not the trajectory. In the
+language of §10 this is the distinction between *stationarity* and *equilibrium*; a non-equilibrium steady state is stationary and carries a current.
+
+**15.2 A loss on every iterate has a gauge freedom (exact; the naming is analogy).** Constraining every marginal $q_1=\dots=q_K=p$ leaves $G_p$ unfixed: composing the iterate maps with any element of $G_p$ leaves every loss unchanged, so the
+identity is a minimiser and the loop is never asked to do work. These are zero modes in the sense of §9.4 (directions the objective cannot see), here a continuous group's worth. A loss on the *last* iterate alone breaks the
+degeneracy for the early passes by not constraining them. Measured: the all-iterates loss is the worst variant at every depth tried (`picodrift/README.md` §4.8, Notebook 12 §3).
+
+**15.3 Collapse is an unstable fixed point with a vanishing restoring force (analogy, with an exact core).** The exact core is `THEORY.md` eq. (67): the field difference between two samples at separation $\delta$ is $O(\delta)$.
+Read it physically: all $K$ particles of a swarm sitting on one point is an equilibrium of a *softened* repulsion, because a smooth pair force vanishes at zero separation, and the point is unstable because the force
+pushes particles apart as soon as they separate, with a rate set by the curvature of the interaction (the scale $\tau$). Two consequences are what you see in a failed run. The escape is exponential, hence slow from deep inside the collapse
+and quick once the spread is visible. And gradient noise can park the swarm there for thousands of steps before the escape. For the Laplace kernel the force at exactly zero separation has finite magnitude but undefined direction, which is
+pitfall 6 of `CLAUDE.md` in different words. What the analogy does not supply is the *entrance* to the collapse, which is a property of the loop's Jacobians, not of the pair force (§15.4).
+
+**15.4 The loop as a product of Jacobians: a Lyapunov exponent (exact definition, conjectured role).** The noise sensitivity $\Sigma_K$ of `THEORY.md` eq. (66) is a sum of products of per-pass Jacobians, so $\tfrac1K\log\|\Sigma_K\|$ is a finite-time Lyapunov exponent
+of the loop. A positive exponent amplifies perturbations of $\boldsymbol{\epsilon}$ (and, through eq. (65), gradients), a negative one contracts the ensemble. Stable training lives near zero. This is the standard picture of why backpropagation through long recurrences
+explodes or vanishes, applied to the one place where drifting is unusually exposed: contraction in the noise directions is contraction of the swarm. The role of the exponent in picodrift's collapses is a conjecture (`THEORY.md` §16.7). Stopping the gradient between passes removes
+the product from the *gradient*, though not from the forward map.
+
+**15.5 The medoid is the particle at the bottom of the swarm's own potential well (analogy).** The consensus score $c_i=\tfrac1{S-1}\sum_j d(\mathbf{x}_i,\mathbf{x}_j)$ is the mean pair interaction energy of particle $i$ with the rest of the swarm under a
+potential $d$; $\arg\min c_i$ is the most deeply screened particle, the one nearest the swarm's centre of mass in the metric $d$. That is the physical reading of minimum-Bayes-risk decoding (`THEORY.md` §16.9). It selects a member of the ensemble, so it
+reshapes the distribution the way cooling the swarm would, and it cannot recover a minor mode that the swarm's own potential screens out.
+
+| looped drifting | physics | status |
+|---|---|---|
+| carried state $\mathbf{h}_k$ | auxiliary field / memory variable | analogy |
+| $(T_k)_\#q=q$ with $T_k\ne\mathrm{id}$ | invariant measure of a flow with a current | exact |
+| $G_p$ | the symmetry group of the target measure | exact |
+| all-iterates loss degeneracy | zero modes of the objective (§9.4) | exact (naming analogy) |
+| swarm collapse | unstable equilibrium of a softened repulsion | analogy, exact core in eq. (67) |
+| $\tfrac1K\log\|\Sigma_K\|$ | finite-time Lyapunov exponent | exact definition |
+| consensus pick (medoid) | lowest mean pair energy in the swarm | analogy |
 
 ---
 

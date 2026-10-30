@@ -16,8 +16,18 @@ reproduce in miniature:
 5. Drift-AR — drifting from a learned, model-dependent prior, and the *moving prior* problem (`THEORY.md` §13.2,
    Notebook 7). arXiv:2603.28049
 
-arXiv identifiers for items 1–5 are as recorded in `THEORY.md`; verify them against the published versions before
-citing.
+Notebook 12 and `THEORY.md` §16 draw on the looped-reasoning literature as summarised in the sibling repository
+`learning-diffusion` (its `THEORY.md` §12). I used that summary, not the papers:
+
+6. Thinking with Looped Flows. arXiv:2609.11801 (as cited in `learning-diffusion`)
+7. Flow Reasoning Models (self-conditioning, Fixed-Point Forcing). arXiv:2606.29150 (as cited in `learning-diffusion`)
+8. One Step Forward and K Steps Back (Denoising Recursion Models). arXiv:2604.18839 (as cited in `learning-diffusion`)
+9. Tiny Recursive Models (Jolicoeur-Martineau, 2025) and Hierarchical Reasoning Models (Wang et al., 2025), the looped
+   baselines those papers build on; self-conditioning is due to Chen et al. (2022). Citations as given in `learning-diffusion`.
+10. Tweedie's formula (Efron, 2011, *Tweedie's formula and selection bias*), used in Notebook 0a and `THEORY.md` §7.1.
+
+arXiv identifiers for items 1–8 are as recorded in `THEORY.md` or `learning-diffusion`; verify them against the published
+versions before citing.
 
 ## Repository documents
 
